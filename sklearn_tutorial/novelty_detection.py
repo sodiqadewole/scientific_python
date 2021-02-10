@@ -263,3 +263,107 @@ ax2.set_ylabel(r"$\sqrt[3]{\rm{(Mahal. dist.)}}$", size=16)
 ax2.set_title("Using robust estimates\n(Minimum Covariance Determinant)")
 
 plt.show()
+
+
+# Isolation Forest: The IsolationForest ‘isolates’ observations by randomly selecting a
+# feature and then randomly selecting a split value between the maximum and minimum values of the selected feature.
+from sklearn.ensemble import IsolationForest
+import numpy as np
+
+X = np.array([[-1, -1], [-2, -1], [-3, -2], [0, 0], [-20, 50], [3, 5]])
+clf = IsolationForest(n_estimators=10, warm_start=True)
+clf.fit(X)  # fit 10 trees
+clf.set_params(n_estimators=20)  # add 10 more trees
+clf.fit(X)  # fit the added trees
+clf.predict(X)
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.ensemble import IsolationForest
+
+rng = np.random.RandomState(42)
+
+# Generate train data
+X = 0.3 * rng.randn(100, 2)
+X_train = np.r_[X + 2, X - 2]
+# Generate some regular novel observations
+X = 0.3 * rng.randn(20, 2)
+X_test = np.r_[X + 2, X - 2]
+# Generate some abnormal novel observations
+X_outliers = rng.uniform(low=-4, high=4, size=(20, 2))
+
+# fit the model
+clf = IsolationForest(max_samples=100, random_state=rng)
+clf.fit(X_train)
+y_pred_train = clf.predict(X_train)
+y_pred_test = clf.predict(X_test)
+y_pred_outliers = clf.predict(X_outliers)
+
+# plot the line, the samples, and the nearest vectors to the plane
+xx, yy = np.meshgrid(np.linspace(-5, 5, 50), np.linspace(-5, 5, 50))
+Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
+Z = Z.reshape(xx.shape)
+
+plt.title("IsolationForest")
+plt.contourf(xx, yy, Z, cmap=plt.cm.Blues_r)
+
+b1 = plt.scatter(X_train[:, 0], X_train[:, 1], c='white', s=20, edgecolor='k')
+b2 = plt.scatter(X_test[:, 0], X_test[:, 1], c='green', s=20, edgecolor='k')
+c = plt.scatter(X_outliers[:, 0], X_outliers[:, 1], c='red', s=20, edgecolor='k')
+plt.axis('tight')
+plt.xlim((-5, 5))
+plt.ylim((-5, 5))
+plt.legend([b1, b2, c],
+           ["training observations",
+            "new regular observations", "new abnormal observations"],
+           loc="upper left")
+plt.show()
+
+# Local Outlier Factor (LOF): algorithm is an unsupervised anomaly detection method which computes the local density deviation
+# of a given data point with respect to its neighbors. It considers as outliers the samples that have a substantially lower
+# density than their neighbors.
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.neighbors import LocalOutlierFactor
+
+np.random.seed(42)
+
+# Generate train data
+X_inliers = 0.3 * np.random.randn(100, 2)
+X_inliers = np.r_[X_inliers + 2, X_inliers - 2]
+
+# Generate some outliers
+X_outliers = np.random.uniform(low=-4, high=4, size=(20, 2))
+X = np.r_[X_inliers, X_outliers]
+
+n_outliers = len(X_outliers)
+ground_truth = np.ones(len(X), dtype=int)
+ground_truth[-n_outliers:] = -1
+
+# fit the model for outlier detection (default)
+clf = LocalOutlierFactor(n_neighbors=20, contamination=0.1)
+# use fit_predict to compute the predicted labels of the training samples
+# (when LOF is used for outlier detection, the estimator has no predict,
+# decision_function and score_samples methods).
+y_pred = clf.fit_predict(X)
+n_errors = (y_pred != ground_truth).sum()
+X_scores = clf.negative_outlier_factor_ # score of abnormality
+X_scores
+
+plt.title("Local Outlier Factor (LOF)")
+plt.scatter(X[:, 0], X[:, 1], color='k', s=3., label='Data points')
+# plot circles with radius proportional to the outlier scores
+radius = (X_scores.max() - X_scores) / (X_scores.max() - X_scores.min())
+plt.scatter(X[:, 0], X[:, 1], s=1000 * radius, edgecolors='r', facecolors='none', label='Outlier scores')
+plt.axis('tight')
+plt.xlim((-5, 5))
+plt.ylim((-5, 5))
+plt.xlabel("prediction errors: %d" % (n_errors))
+legend = plt.legend(loc='upper left')
+legend.legendHandles[0]._sizes = [10]
+legend.legendHandles[1]._sizes = [20]
+plt.show()
+
+# For novelty detection using LOF, instantiate the estimator with the novelty parameter set to True before fitting the estimator:
